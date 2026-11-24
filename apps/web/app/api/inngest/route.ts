@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { isFake } from "@cs/db";
 import { functions, inngest } from "@cs/workflows";
 
+// Jobs end themselves before this: see JOB_MS in packages/workflows/src/dispatch.ts.
 export const maxDuration = 300;
 const handlers = serve({ client: inngest, functions });
 

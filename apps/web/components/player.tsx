@@ -5,7 +5,7 @@ import { LOVE_TAGS } from "@cs/schemas";
 import type { Snapshot } from "@cs/workflows";
 import { api, useSession, useWakeLock, vibrate, type Session } from "@/lib/client";
 import { DecisionLine, GroupReport, PlayerChips, ProfileCard, RatingLine, Results, shownPhase, StageView, WriteInList } from "./stage";
-import { ActionButton, Art, Banners, Button, Check, Countdown, Eyebrow, inputClass, Panel, SettingsMenu, useErrorText } from "./ui";
+import { ActionButton, Art, Attribution, Banners, Button, Check, Countdown, Eyebrow, inputClass, Panel, SettingsMenu, useErrorText } from "./ui";
 
 const AVATARS = ["🙂", "🦊", "🐙", "🦉", "🐝", "🌵", "🌙", "🔥", "🍄", "🪁", "🎲", "🧭"];
 
@@ -228,7 +228,7 @@ function SelectionForm({ session }: { session: Session }) {
       >
         {t("confirm")}
       </ActionButton>
-      <p className="text-sm text-muted">{t("attribution")}</p>
+      <Attribution />
     </div>
   );
 }
@@ -525,7 +525,8 @@ export function PlayBody({ session }: { session: Session }) {
         </div>
       );
     case "final_vote":
-      return snap.round?.myVote ? <Voted snap={snap} /> : <FinalForm key={snap.round?.candidates.map((c) => c.id).join()} session={session} />;
+      if (!snap.round) return null;
+      return snap.round.myVote ? <Voted snap={snap} /> : <FinalForm key={snap.round.candidates.map((c) => c.id).join()} session={session} />;
     case "analysis_reveal":
     case "story_generating": {
       const mine = snap.analysis?.mine;

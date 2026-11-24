@@ -34,6 +34,13 @@
     "language": "Langue de l'interface",
     "choose": "Choisir…"
   },
+  "login": {
+    "title": "Connexion de l'hôte",
+    "hint": "Saisissez le mot de passe de l'hôte pour ouvrir et diriger des salles. Les joueurs n'en ont pas besoin.",
+    "password": "Mot de passe de l'hôte",
+    "submit": "Se connecter",
+    "logout": "Se déconnecter"
+  },
   "errors": {
     "room_full": "Cette salle est complète.",
     "locked": "L'hôte a verrouillé cette salle.",
@@ -53,6 +60,9 @@
     "already_joined": "Ce navigateur a déjà une place dans cette salle.",
     "nickname_taken": "Ce pseudo est déjà pris.",
     "bad_text": "Ce texte est trop long ou ne peut pas être utilisé.",
+    "login_required": "Reconnectez-vous pour diriger cette salle.",
+    "bad_password": "Ce mot de passe est incorrect.",
+    "login_not_configured": "Impossible d'ouvrir une salle : le mot de passe de l'hôte n'est pas configuré sur le serveur.",
     "generic": "Cela n'a pas fonctionné. Réessayez."
   },
   "lobby": {

@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { MockLanguageModelV4 } from "ai/test";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { setModelFactory } from "@cs/ai";
 import { createEmbeddedDb, getDb, setDb } from "@cs/db";
 import * as builtin from "@cs/default-story";
 import { setImageClient } from "@cs/media";
 import { playSession } from "../../../tools/simulator/src/run.ts";
+import { aiContext } from "../src/jobs.ts";
+import { concurrencyLimit, eventId, inngest, inngestEnabled, JOB_MS, jobTime, registerHandlers, runJob, TEXT_MS } from "../src/dispatch.ts";
 import * as game from "../src/index.ts";
 import type { Snapshot } from "../src/index.ts";
 
@@ -148,6 +150,218 @@ async function room(config: object = {}, names = ["Ana", "Leo", "Maya"]) {
   return { code, host, users, view, act, toVoting };
 }
 
+describe("jobs", () => {
+  const job = { kind: "dilemma" as const, sessionId: randomUUID() as string, k: 2 };
+
+  it("asks Inngest for no more than the plan allows", () => {
+    expect([undefined, "", "0", "-1", "2.5", "many"].map((v) => concurrencyLimit(v ?? ""))).toEqual([5, 5, 5, 5, 5, 5]);
+    expect(["1", "5", "100"].map((v) => concurrencyLimit(v))).toEqual([1, 5, 100]);
+  });
+
+  it("sends the same event id within a minute, and a new one later or for another job", () => {
+    const now = Date.UTC(2026, 10, 24, 10, 0, 5);
+    const id = eventId(job, now);
+    expect(eventId({ ...job, attempt: 0 }, now + 50_000)).toBe(id);
+    const others = [
+      eventId(job, now + 60_000),
+      eventId({ ...job, attempt: 1 }, now),
+      eventId({ ...job, k: 3 }, now),
+      eventId({ ...job, ref: "x" }, now),
+      eventId({ ...job, kind: "image" }, now),
+      eventId({ ...job, sessionId: randomUUID() }, now),
+    ];
+    expect(new Set([id, ...others]).size).toBe(7);
+  });
+
+  it("uses Inngest's cloud only with both keys, and never from pnpm dev", () => {
+    const keys = { INNGEST_EVENT_KEY: "real", INNGEST_SIGNING_KEY: "real" };
+    expect(inngestEnabled({ NODE_ENV: "production", ...keys })).toBe(true);
+    expect(inngestEnabled({ NODE_ENV: "development", ...keys })).toBe(false);
+    expect(inngestEnabled({ NODE_ENV: "production", ...keys, INNGEST_SIGNING_KEY: "FAKE" })).toBe(false);
+    expect(inngestEnabled({ NODE_ENV: "production", ...keys, INNGEST_EVENT_KEY: undefined })).toBe(false);
+    expect(inngestEnabled({ NODE_ENV: "development", INNGEST_DEV: "1" })).toBe(true);
+    expect(inngestEnabled({ NODE_ENV: "production", INNGEST_DEV: "0", INNGEST_EVENT_KEY: "FAKE" })).toBe(false);
+  });
+
+  it("runs a job here, with the AI, when Inngest takes the event but never starts it", async () => {
+    mockAi(3);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const send = vi.spyOn(inngest, "send").mockResolvedValue({ ids: [] } as never);
+    process.env.INNGEST_DEV = "1";
+    try {
+      const { code, host, users, view, act } = await room({ builtInStory: false }, ["Ana", "Leo"]);
+      const { id } = await row(code);
+      const db = await getDb();
+      const later = (seconds: number) => db.query("update sessions set updated_at = now() - $2::int * interval '1 second' where id = $1", [id, seconds]);
+      await act("start");
+      for (const u of users) await game.saveSelections(code, u, [{ title: "The Hobbit", kind: "book" }]);
+      await act("continue_selection");
+      const universe = () => send.mock.calls.filter(([e]) => (e as { data: { kind: string } }).data.kind === "universe").length;
+      expect(universe()).toBe(1);
+      await later(20);
+      for (let i = 0; i < 5; i++) await view(host);
+      await game.drainJobs();
+      // Not sent again and again by every screen that asks.
+      expect(universe()).toBeLessThanOrEqual(2);
+      expect((await view(host)).phase).toBe("universe_generating");
+      await later(60);
+      await Promise.all([view(host), view(users[0]!), view(users[1]!)]);
+      await game.drainJobs();
+      expect((await view(host)).phase).toBe("universe_reveal");
+      expect((await row(code)).content_source).toBe("ai");
+      const jobs = await db.query("select 1 from jobs where session_id = $1 and kind = 'universe'", [id]);
+      expect(jobs).toHaveLength(1);
+    } finally {
+      delete process.env.INNGEST_DEV;
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("gives every job deadlines that end before the server function is stopped", async () => {
+    expect(TEXT_MS).toBeLessThan(JOB_MS);
+    expect(JOB_MS).toBeLessThan(300_000);
+    expect(jobTime()).toBeUndefined();
+    expect((await aiContext(null)).deadline).toBeUndefined();
+    const { code } = await room();
+    const registry = globalThis as unknown as { __csHandlers: Parameters<typeof registerHandlers>[0] };
+    const real = registry.__csHandlers;
+    let seen: { time: ReturnType<typeof jobTime>; text?: number } | undefined;
+    registerHandlers({ ...real, portraits: async () => void (seen = { time: jobTime(), text: (await aiContext(null)).deadline }) });
+    const started = Date.now();
+    try {
+      await runJob({ kind: "portraits", sessionId: (await row(code)).id, k: 99 });
+    } finally {
+      registerHandlers(real);
+    }
+    expect(seen!.time!.end - started).toBeGreaterThanOrEqual(JOB_MS);
+    expect(seen!.time!.end - started).toBeLessThan(JOB_MS + 5_000);
+    expect(seen!.text).toBe(seen!.time!.text);
+    expect(jobTime()).toBeUndefined();
+  });
+});
+
+describe("reasons for the built-in story", () => {
+  let logged: string[] = [];
+  beforeEach(() => {
+    logged = [];
+    vi.spyOn(console, "error").mockImplementation((...x) => void logged.push(x.map(String).join(" ")));
+  });
+  afterEach(() => void vi.restoreAllMocks());
+  const reasonOf = async (id: string) =>
+    (await (await getDb()).query<{ error: string }>("select error from ai_calls where session_id = $1 and task = 'session'", [id])).map((x) => x.error);
+
+  it("stores and prints why a session left the AI story", async () => {
+    mockAi(3, (t, k) => t === "dilemma" && k === 2);
+    const { id } = await row((await playSession({ n: 3, players: 2 })).code);
+    expect(await reasonOf(id)).toEqual(["Error: injected failure"]);
+    expect(logged).toContain(`[ai] session ${id} continues with the built-in story from dilemma 2: Error: injected failure`);
+  });
+
+  it("names a spent budget", async () => {
+    mockAi(3);
+    process.env.SESSION_BUDGET_USD = "0.0000001";
+    const { id } = await row((await playSession({ n: 3, players: 2 })).code);
+    delete process.env.SESSION_BUDGET_USD;
+    expect(await reasonOf(id)).toEqual(["the session budget is spent"]);
+  });
+
+  it("stays quiet with fake keys", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-FAKE-replace-me";
+    const { id } = await row((await playSession({ n: 3, players: 2 })).code);
+    expect(await reasonOf(id)).toEqual(["no Anthropic key is configured"]);
+    expect(logged.filter((l) => l.includes("[ai]"))).toEqual([]);
+  });
+});
+
+describe("host login", () => {
+  const loggedOut = async (code: string, user: string) => game.snapshot(code, user, null, undefined, false);
+
+  it("gives a host who is not logged in nothing but the request to log in", async () => {
+    const { code, host } = await room();
+    expect(await loggedOut(code, host)).toMatchObject({ limited: true, loginRequired: true });
+    expect(await game.snapshot(code, host)).toMatchObject({ me: { isHost: true, userIsHost: true, loginRequired: false } });
+    await expect(game.exportSession(code, host, false)).rejects.toThrow("forbidden");
+    expect(await game.exportSession(code, host)).toMatchObject({ code });
+  });
+
+  it("lets a host with a seat keep playing without host data", async () => {
+    const { code, host } = await room();
+    await game.join(code, host, { nickname: "Hosty" });
+    const snap = (await loggedOut(code, host)) as Snapshot;
+    expect(snap.me).toMatchObject({ nickname: "Hosty", isHost: false, userIsHost: false, loginRequired: true });
+    expect(snap.host).toBeUndefined();
+  });
+
+  it("does not let a host around the login by being their own co-host", async () => {
+    const { code, host } = await room();
+    const seat = await game.join(code, host, { nickname: "Hosty" });
+    await game.roomAction(code, host, { type: "cohost", participantId: seat.id });
+    expect(((await loggedOut(code, host)) as Snapshot).me.isHost).toBe(false);
+  });
+
+  it("never asks players, co-hosts, strangers or the stage to log in", async () => {
+    const { code, host, users, view } = await room();
+    const leo = (await view(users[1]!)).me.participantId!;
+    await game.roomAction(code, host, { type: "cohost", participantId: leo });
+    expect((await loggedOut(code, users[0]!)) as Snapshot).toMatchObject({ me: { isHost: false, loginRequired: false } });
+    expect((await loggedOut(code, users[1]!)) as Snapshot).toMatchObject({ me: { isHost: true, userIsHost: false, loginRequired: false } });
+    expect(await loggedOut(code, randomUUID())).toMatchObject({ limited: true, loginRequired: false });
+    const token = (await view(host)).host!.stageToken;
+    expect(await game.snapshot(code, randomUUID(), token, undefined, false)).toMatchObject({ phase: "lobby", me: { loginRequired: false } });
+    expect(await Promise.all([host, users[1]!].map((u) => game.isOwner(code, u)))).toEqual([true, false]);
+  });
+});
+
+describe("snapshots", () => {
+  it("never mixes two phases, even when the vote closes while it is being read", async () => {
+    const { code, users, view, act, toVoting } = await room();
+    await toVoting();
+    for (const [i, u] of users.entries()) await game.castVote(code, u, { optionKeys: [i ? "B" : "A"] });
+    await act("close_voting");
+    await act("start_discussion");
+    await act("open_final_vote");
+    const { candidates } = (await view(users[0]!)).round!;
+    for (const u of users) await game.castVote(code, u, { optionKeys: [candidates[0]!.id] });
+    const real = await getDb();
+    let closed = false;
+    try {
+      setDb({
+        ...real,
+        query: async (text, params) => {
+          if (!closed && text.includes("from vote_rounds")) {
+            closed = true;
+            setDb(real);
+            await act("close_final_vote");
+          }
+          return real.query(text, params);
+        },
+      });
+      const snap = await view(users[0]!);
+      expect(closed).toBe(true);
+      expect(snap.phase).toBe("consequence");
+      expect(snap.round).toBeUndefined();
+      expect(snap.decision).toBeDefined();
+    } finally {
+      setDb(real);
+    }
+  });
+});
+
+describe("settings", () => {
+  it("keeps every change when saves overlap, and none after the start", async () => {
+    const host = randomUUID();
+    const { code } = await game.createSession(host, {});
+    const changes = { dilemmas: 3, maxPlayers: 4, votingSeconds: 0, discussionSeconds: 10, predictions: true, personas: false };
+    await Promise.all(Object.entries(changes).map(([k, v]) => game.updateConfig(code, host, { [k]: v })));
+    const s = (await game.snapshot(code, host)) as Snapshot;
+    expect(s.config).toMatchObject(changes);
+    expect(s.n).toBe(3);
+    for (const name of ["Ana", "Leo"]) await game.join(code, randomUUID(), { nickname: name });
+    await game.runHostAction(code, host, "start", { phase: "lobby", k: 0 });
+    await expect(game.updateConfig(code, host, { dilemmas: 9 })).rejects.toThrow("started");
+  });
+});
+
 describe("privacy", () => {
   it("shows strangers nothing, and the stage everything public", async () => {
     const { code, host, view, toVoting } = await room();
@@ -227,7 +441,8 @@ describe("rules", () => {
     await expect(game.roomAction(code, users[0]!, { type: "lock", locked: true })).rejects.toThrow("forbidden");
     await act("start");
     await expect(game.runHostAction(code, host, "start", { phase: "lobby", k: 0 })).rejects.toThrow("conflict");
-    const id = (await view(host)).players[0]!.id;
+    // By name: players who join in the same millisecond have no fixed order.
+    const id = (await view(host)).players.find((p) => p.nickname === "Ana")!.id;
     await game.roomAction(code, host, { type: "cohost", participantId: id });
     expect((await view(users[0]!)).me.isHost).toBe(true);
     await expect(game.roomAction(code, users[0]!, { type: "cohost", participantId: id })).rejects.toThrow("forbidden");

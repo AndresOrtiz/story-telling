@@ -34,6 +34,13 @@
     "language": "Idioma da interface",
     "choose": "Escolher…"
   },
+  "login": {
+    "title": "Acesso do anfitrião",
+    "hint": "Escreva a senha de anfitrião para abrir e conduzir salas. Os jogadores não precisam dela.",
+    "password": "Senha de anfitrião",
+    "submit": "Entrar",
+    "logout": "Sair"
+  },
   "errors": {
     "room_full": "Esta sala está cheia.",
     "locked": "O anfitrião trancou esta sala.",
@@ -53,6 +60,9 @@
     "already_joined": "Este navegador já tem um lugar nesta sala.",
     "nickname_taken": "Esse apelido já está em uso.",
     "bad_text": "Esse texto é longo demais ou não pode ser usado.",
+    "login_required": "Entre novamente para conduzir esta sala.",
+    "bad_password": "A senha não está correta.",
+    "login_not_configured": "Não é possível abrir salas: a senha de anfitrião não está configurada no servidor.",
     "generic": "Não funcionou. Tente novamente."
   },
   "lobby": {

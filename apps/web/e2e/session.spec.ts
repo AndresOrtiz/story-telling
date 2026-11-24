@@ -33,6 +33,13 @@ test("a full session with stage, from lobby to story, PDF and public page", asyn
   const players = [await joinRoom(browser, PHONE, code, "Ana"), await joinRoom(browser, DEVICES[1]!, code, "Leo"), await joinRoom(browser, LAPTOP, code, "Maya")];
   await act(host, "start");
   await expect(players[0]!.locator('input[name="search"]')).toBeVisible();
+  // TMDB requires its logo next to the notice.
+  for (const page of [players[0]!, stage]) {
+    const logo = page.getByTestId("tmdb-logo");
+    await expect(logo).toBeVisible();
+    expect(await logo.evaluate((x: HTMLImageElement) => x.naturalWidth)).toBeGreaterThan(0);
+    await expect(page.getByText("not endorsed or certified by TMDB")).toBeVisible();
+  }
   const { selectTitle } = await import("./helpers");
   await selectTitle(players[0]!, "The Hobbit");
   await selectTitle(players[1]!, "Interstellar");
@@ -56,7 +63,8 @@ test("a full session with stage, from lobby to story, PDF and public page", asyn
   players[0] = await context.newPage();
   await players[0]!.goto(`/play/${code}`);
   await expect(players[0]!.getByTestId("voted")).toBeVisible();
-  // The host reminds a player who has not voted.
+  // The host reminds a player who has not voted, once the host's list shows who that is.
+  await expect(host.getByRole("button", { name: "Remind" })).toHaveCount(2);
   await host.getByRole("button", { name: "Remind" }).first().click();
   await expect(players[1]!.getByText("The group is waiting for your vote.")).toBeVisible();
   await vote(players[1]!, 1);
@@ -128,6 +136,38 @@ test("phones only, without a stage", async ({ browser }) => {
   await phaseIs(host, "analysis_reveal");
   await act(host, "show_story");
   await expect(players[1]!.getByText("Scene 1 of")).toBeVisible();
+});
+
+test("settings changed quickly on a slow connection are all kept, also right before the start", async ({ browser }) => {
+  const { host, code } = await createRoom(browser);
+  for (const name of ["Ana", "Leo"]) await joinRoom(browser, PHONE, code, name);
+  await host.route("**/command", async (route) => {
+    if (route.request().postData()?.includes('"config"')) await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  const saved = () =>
+    host.evaluate(async (c) => {
+      const s = await (await fetch(`/api/session/${c}/snapshot`)).json();
+      return [s.phase, s.n, s.config.dilemmas, s.config.maxPlayers, s.config.votingSeconds];
+    }, code);
+  await host.getByRole("tab", { name: "Settings" }).click();
+  const dilemmas = host.locator('input[name="dilemmas"]:visible');
+  const max = host.locator('input[name="maxPlayers"]:visible');
+  await dilemmas.fill("3");
+  await max.fill("4");
+  await max.blur();
+  await host.locator('select[name="votingSeconds"]:visible').selectOption("0");
+  // While the saves are on their way, the first one must not put the others back.
+  for (let i = 0; i < 12; i++) {
+    expect([await dilemmas.inputValue(), await max.inputValue()]).toEqual(["3", "4"]);
+    await host.waitForTimeout(400);
+  }
+  await expect.poll(saved).toEqual(["lobby", 3, 3, 4, 0]);
+  await dilemmas.fill("6");
+  await host.getByRole("tab", { name: "Now" }).click();
+  await act(host, "start");
+  await phaseIs(host, "selection");
+  expect(await saved()).toEqual(["selection", 6, 6, 4, 0]);
 });
 
 test("write-in, pause, host who plays, late join and seat recovery", async ({ browser }) => {

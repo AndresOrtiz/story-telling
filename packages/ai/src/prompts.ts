@@ -38,4 +38,13 @@ export function storySystem(frame: StoryFrame): string {
   ].join("\n\n");
 }
 
+/** What makes a dilemma hard (design §5 Stage 4). Shared by the writer and the reviewer. */
+export const HARD_DILEMMA = [
+  "Every option is defensible by a good person, and every option does certain, lasting harm to somebody or something the players care about.",
+  "Two things that are both right collide, such as mercy and justice, loyalty and truth, one person they love and many strangers, a promise and a life.",
+  "The harm has a face: a named character or group from the Story Bible, hurt by this group's own decision.",
+  "The price is personal and cannot be undone: a life, a freedom, a home, a bond or a trust is lost for good. Smaller rations, delays, criticism, anger or discomfort are far too small a price.",
+  "There is no way out: no compromise that satisfies everyone, no waiting, investigating, negotiating or asking somebody else to decide, no option that merely might go wrong.",
+].join(" ");
+
 export const bibleBlock = (bible: Bible): string => `STORY BIBLE (canon)\n${JSON.stringify(bible)}`;

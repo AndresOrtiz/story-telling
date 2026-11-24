@@ -41,6 +41,8 @@ export type Snapshot = {
   me: {
     userIsHost: boolean;
     isHost: boolean;
+    /** This browser opened the room, but must log in to control it. */
+    loginRequired: boolean;
     participantId: string | null;
     nickname: string | null;
     role: "player" | "spectator" | null;
@@ -156,7 +158,7 @@ export type Snapshot = {
 };
 export type MySelection = { titleId: string; title: string; year: number | null; kind: string; favorite: boolean; loveTags: string[] };
 
-export type Limited = { limited: true; code: string; phase: Phase; reason: "join" | "waiting_approval"; lateJoin: boolean; spectators: boolean; locked: boolean };
+export type Limited = { limited: true; code: string; phase: Phase; reason: "join" | "waiting_approval"; lateJoin: boolean; spectators: boolean; locked: boolean; loginRequired: boolean };
 
 const image = (a: r.AssetRow | null | undefined): ImageView | null => (a ? { url: a.url, alt: a.alt, blurhash: a.blurhash } : null);
 
@@ -204,11 +206,32 @@ export async function snapshot(
   userId: string,
   stageToken?: string | null,
   knownVersion?: number,
+  hostLogin = true,
 ): Promise<Snapshot | Limited> {
   const db = await getDb();
-  let a: Access = await access(code, userId, stageToken);
-  if (await tick(a.session)) a = await access(code, userId, stageToken);
+  // A snapshot takes many queries. When the phase changes between them, its parts do not fit together
+  // (a final vote whose round is already closed, or the open votes of a revote), so it is read again.
+  for (let i = 0; i < 3; i++) {
+    const snap = await read(code, userId, stageToken, knownVersion, hostLogin);
+    if (!("version" in snap)) return snap;
+    const s = await r.sessionByCode(db, code);
+    if (s?.phase === snap.phase && s.current_k === snap.k) return snap;
+  }
+  throw new r.GameError("try_again", 503);
+}
+
+async function read(
+  code: string,
+  userId: string,
+  stageToken: string | null | undefined,
+  knownVersion: number | undefined,
+  hostLogin: boolean,
+): Promise<Snapshot | Limited> {
+  const db = await getDb();
+  let a: Access = await access(code, userId, stageToken, hostLogin);
+  if (await tick(a.session)) a = await access(code, userId, stageToken, hostLogin);
   const { session: s, participant: p, isHost } = a;
+  const loginRequired = a.isOwner && !hostLogin;
   // While paused, everyone keeps seeing the phase the session was paused in.
   const phase: Phase = s.phase === "paused" ? s.paused_from! : s.phase;
 
@@ -221,6 +244,7 @@ export async function snapshot(
       lateJoin: s.config.lateJoin === "host",
       spectators: s.config.spectators,
       locked: s.locked,
+      loginRequired,
     };
   }
   // The caller already has this version: send only the clock.
@@ -257,8 +281,9 @@ export async function snapshot(
     fallbackFromK: s.fallback_from_k,
     hostOnline: online(s.host_seen_at),
     me: {
-      userIsHost: s.host_user_id === userId,
+      userIsHost: a.isOwner && isHost,
       isHost,
+      loginRequired,
       participantId: p?.id ?? null,
       nickname: p?.nickname ?? null,
       role: p?.role ?? null,
@@ -566,8 +591,8 @@ export async function sharedStory(slug: string) {
 }
 
 /** Full history for the host (JSON export, §5 Stage 8). Contains no other player's profile. */
-export async function exportSession(code: string, userId: string) {
-  const a = await access(code, userId);
+export async function exportSession(code: string, userId: string, hostLogin = true) {
+  const a = await access(code, userId, null, hostLogin);
   if (!a.isHost) throw new r.GameError("forbidden", 403);
   const db = await getDb();
   const s = a.session;

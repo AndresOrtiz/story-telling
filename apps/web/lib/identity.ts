@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { isFake } from "@cs/db";
 
 const COOKIE = "cs_id";
-const cloud = () => !isFake(process.env.DATABASE_URL);
+export const cloud = () => !isFake(process.env.DATABASE_URL);
 
 /** Cloud deployments use Supabase anonymous sign-in; the embedded database uses a signed cookie. */
 export const authMode = (): "supabase" | "cookie" =>
@@ -15,7 +15,9 @@ export const authMode = (): "supabase" | "cookie" =>
     ? "supabase"
     : "cookie";
 
-function secret(): string {
+export const secureCookies = () => cloud() && process.env.NODE_ENV === "production";
+
+export function secret(): string {
   const value = process.env.COOKIE_SECRET;
   if (cloud() && isFake(value)) throw new Error("Set COOKIE_SECRET to a real value when using a real database");
   return value ?? "FAKE-cookie-secret-for-local-development-only";
@@ -65,7 +67,7 @@ export async function issueCookieIdentity(): Promise<string> {
   jar.set(COOKIE, `${id}.${sign(id)}`, {
     httpOnly: true,
     sameSite: "lax",
-    secure: cloud() && process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     path: "/",
     maxAge: 60 * 60 * 24 * 60,
   });

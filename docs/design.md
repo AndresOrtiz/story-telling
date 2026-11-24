@@ -314,13 +314,13 @@ Dilemmas are generated **one at a time, just in time**, because each depends on 
 | Element | Notes |
 |---|---|
 | Title | Short and evocative |
-| Narrative connection | 1–2 sentences linking to the previous consequence ("Because you sealed the gates…") |
-| Story context | 80–150 words |
-| Moral conflict | The value tension made explicit (e.g., *loyalty vs. justice*) |
+| Narrative connection | One sentence (about 15 words) linking to the previous consequence ("Because you sealed the gates…") |
+| Story context | At most 45 words, 3 sentences |
+| Moral conflict | The value tension made explicit in about 8 words (e.g., *loyalty vs. justice*) |
 | Voting question | Second-person and concrete |
 | Format | `single` or `multiple`, **chosen by the AI based on the situation**, with a written justification |
 | Selection rules (multiple) | `min_select`, `max_select`, compatibility notes, mutually exclusive pairs |
-| Options | 3–5 options (2–6 allowed). Each has a label, a short description, **foreseeable** consequences (shown) and **hidden** consequences (kept secret), and **value tags** (U3) |
+| Options | 2–4 options, preferably 2 or 3 (2–6 allowed). Each has a label, a description of about 12 words, **foreseeable** consequences (shown) and **hidden** consequences (kept secret), and **value tags** (U3) |
 | Stakes | What is at risk (people, resources, relationships) |
 | Featured characters | Bible IDs, which drives image composition |
 | Image | A unique illustration of this specific moment |
@@ -328,7 +328,8 @@ Dilemmas are generated **one at a time, just in time**, because each depends on 
 
 **Quality rules enforced by a validator pass** (a cheap model checks, and the dilemma is regenerated if a check fails):
 
-- No obviously correct option. Each option must have a defensible rationale and a real cost.
+- A very difficult moral situation: two things that are both right collide, and every option does certain, lasting harm to somebody the players care about.
+- No obviously correct option and no way out (compromise, delay, investigation). Each option must have a defensible rationale and a real cost.
 - The options must differ in value tags (not four flavors of the same choice).
 - The dilemma references at least one prior consequence (for k > 1).
 - No contradiction with canon (dead characters stay dead, spent resources stay spent).

@@ -38,4 +38,28 @@ describe("createImage", () => {
     expect((await m.createImage(base)).url).toBe("/placeholders/scene.svg");
     expect(seen).toEqual([m.PRIMARY_IMAGE_MODEL(), m.FALLBACK_IMAGE_MODEL()]);
   });
+  it("respects the deadline of the job", async () => {
+    const timeouts: number[] = [];
+    m.setImageClient(async (r) => {
+      timeouts.push(r.timeoutMs);
+      return png();
+    });
+    await m.createImage(base);
+    await m.createImage({ ...base, deadline: Date.now() + 20_000 });
+    expect(timeouts[0]).toBe(60_000);
+    expect(timeouts[1]).toBeGreaterThan(19_000);
+    expect(timeouts[1]).toBeLessThanOrEqual(20_000);
+    expect((await m.createImage({ ...base, deadline: Date.now() + 1_000 })).provider).toBe("placeholder");
+    expect(timeouts).toHaveLength(2);
+  });
+  it("does not try the second model without time", async () => {
+    const seen: string[] = [];
+    m.setImageClient(async (r) => {
+      seen.push(r.model);
+      await new Promise((x) => setTimeout(x, 600));
+      throw new Error("slow failure");
+    });
+    expect((await m.createImage({ ...base, deadline: Date.now() + 5_300 })).provider).toBe("placeholder");
+    expect(seen).toEqual([m.PRIMARY_IMAGE_MODEL()]);
+  });
 });

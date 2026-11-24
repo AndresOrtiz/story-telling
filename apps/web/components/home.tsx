@@ -3,12 +3,15 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LANGUAGES, SessionConfig } from "@cs/schemas";
-import { api } from "@/lib/client";
+import { api, ApiError } from "@/lib/client";
+import type { LoginState } from "@/lib/host-login";
 import { ConfigForm } from "./host";
+import { HostLogin } from "./host-login";
 import { ActionButton, Button, inputClass, Panel, SettingsMenu, useErrorText } from "./ui";
 
-export function Home({ locale }: { locale: string }) {
+export function Home({ locale, login }: { locale: string; login: LoginState }) {
   const t = useTranslations("home");
+  const tLogin = useTranslations("login");
   const errorText = useErrorText();
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -48,27 +51,62 @@ export function Home({ locale }: { locale: string }) {
             <p className="text-muted">{t("joinHint")}</p>
           </Panel>
           <Panel className="space-y-4">
-            <h2 className="text-2xl font-semibold">{t("hostTitle")}</h2>
-            <p className="text-muted">{t("hostHint")}</p>
-            <ActionButton
-              kind="primary"
-              className="w-full"
-              data-testid="create"
-              run={async () => {
-                try {
-                  const s = await api<{ code: string }>("/api/session", config);
-                  router.push(`/host/${s.code}`);
-                } catch {
-                  setError("generic");
-                }
-              }}
-            >
-              {t("create")}
-            </ActionButton>
-            <details>
-              <summary className="min-h-12 py-3 text-muted">{t("options")}</summary>
-              <ConfigForm value={config} onChange={(patch) => setConfig((c) => ({ ...c, ...patch }))} />
-            </details>
+            {login === "needed" ? (
+              <HostLogin
+                onDone={() => {
+                  setError(null);
+                  router.refresh();
+                }}
+              />
+            ) : (
+              <>
+                <h2 className="text-2xl font-semibold">{t("hostTitle")}</h2>
+                {login === "unconfigured" ? (
+                  <p>{errorText("login_not_configured")}</p>
+                ) : (
+                  <>
+                    <p className="text-muted">{t("hostHint")}</p>
+                    <ActionButton
+                      kind="primary"
+                      className="w-full"
+                      data-testid="create"
+                      run={async () => {
+                        try {
+                          const s = await api<{ code: string }>("/api/session", config);
+                          router.push(`/host/${s.code}`);
+                        } catch (e) {
+                          setError(e instanceof ApiError ? e.message : "generic");
+                          // The login may have expired. The server decides what to show.
+                          router.refresh();
+                        }
+                      }}
+                    >
+                      {t("create")}
+                    </ActionButton>
+                    <details>
+                      <summary className="min-h-12 py-3 text-muted">{t("options")}</summary>
+                      <ConfigForm value={config} onChange={(patch) => setConfig((c) => ({ ...c, ...patch }))} />
+                    </details>
+                  </>
+                )}
+                {login === "ok" ? (
+                  <ActionButton
+                    kind="ghost"
+                    data-testid="logout"
+                    run={async () => {
+                      try {
+                        await api("/api/host-login", { logout: true });
+                        router.refresh();
+                      } catch {
+                        setError("generic");
+                      }
+                    }}
+                  >
+                    {tLogin("logout")}
+                  </ActionButton>
+                ) : null}
+              </>
+            )}
           </Panel>
         </div>
         <p className="text-sm text-muted">{t("disclaimer")}</p>

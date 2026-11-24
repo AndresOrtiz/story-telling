@@ -2,7 +2,7 @@ import { createHash, randomInt, randomUUID } from "node:crypto";
 import * as ai from "@cs/ai";
 import { selectionError } from "@cs/engine";
 import { CATALOG, SURPRISE_POOL } from "@cs/default-story";
-import { Nickname, ROOM_ALPHABET, SelectionInput, SessionConfig, VoteInput, type Dilemma } from "@cs/schemas";
+import { DILEMMA_LIMITS, Nickname, ROOM_ALPHABET, SelectionInput, SessionConfig, VoteInput, type Dilemma } from "@cs/schemas";
 import { errorCode, getDb, json, type Sql } from "@cs/db";
 import { aiContext } from "./jobs.ts";
 import { dispatch } from "./dispatch.ts";
@@ -26,20 +26,28 @@ async function sql<T>(run: () => Promise<T>): Promise<T> {
 export type Access = {
   session: r.SessionRow;
   participant: r.ParticipantRow | null;
+  /** Opened the room, whether or not they are logged in. */
+  isOwner: boolean;
   isHost: boolean;
   /** Host, approved participant or a valid stage link. */
   canView: boolean;
 };
 
-export async function access(code: string, userId: string, stageToken?: string | null): Promise<Access> {
+/** `hostLogin` is false when hosts must log in and this browser has not. Co-hosts never log in. */
+export async function access(code: string, userId: string, stageToken?: string | null, hostLogin = true): Promise<Access> {
   const db = await getDb();
   const session = await r.sessionByCode(db, code);
   if (!session) throw new GameError("not_found", 404);
   const found = await r.participantOf(db, session.id, userId);
   const participant = found && !found.kicked_at ? found : null;
-  const isHost = session.host_user_id === userId || Boolean(participant?.is_cohost);
+  const isOwner = session.host_user_id === userId;
+  const isHost = isOwner ? hostLogin : Boolean(participant?.is_cohost);
   const stage = Boolean(stageToken) && stageToken === session.stage_token;
-  return { session, participant, isHost, canView: isHost || stage || Boolean(participant?.approved) };
+  return { session, participant, isOwner, isHost, canView: isHost || stage || Boolean(participant?.approved) };
+}
+
+export async function isOwner(code: string, userId: string): Promise<boolean> {
+  return (await access(code, userId)).isOwner;
 }
 
 export async function requireHost(code: string, userId: string): Promise<r.SessionRow> {
@@ -72,14 +80,18 @@ export async function createSession(userId: string, input: unknown): Promise<{ c
 }
 
 export async function updateConfig(code: string, userId: string, input: unknown): Promise<void> {
-  const s = await requireHost(code, userId);
-  if (s.phase !== "lobby") throw new GameError("started", 409);
-  const config = SessionConfig.parse({ ...s.config, ...(input as object) });
+  const { id } = await requireHost(code, userId);
   const db = await getDb();
-  await db.query(
-    "update sessions set config = $2, dilemma_count = $3, content_source = $4, state_version = state_version + 1 where id = $1 and phase = 'lobby'",
-    [s.id, json(config), config.dilemmas, config.builtInStory ? "default" : "ai"],
-  );
+  await db.transaction(async (tx) => {
+    // Every save changes one setting and writes them all, so saves that overlap must wait for each other.
+    const s = await r.sessionById(tx, id, true);
+    if (s?.phase !== "lobby") throw new GameError("started", 409);
+    const config = SessionConfig.parse({ ...s.config, ...(input as object) });
+    await tx.query(
+      "update sessions set config = $2, dilemma_count = $3, content_source = $4, state_version = state_version + 1 where id = $1",
+      [id, json(config), config.dilemmas, config.builtInStory ? "default" : "ai"],
+    );
+  });
 }
 
 export async function join(
@@ -385,12 +397,11 @@ export async function editDilemma(code: string, userId: string, patch: { title?:
   const db = await getDb();
   const d = await r.dilemmaAt(db, s.id, s.current_k);
   if (!d) throw new GameError("no_dilemma", 409);
-  const limits = { title: 70, context: 1200, question: 240 } as const;
   const next = { ...d.payload };
   for (const key of ["title", "context", "question"] as const) {
     const value = patch[key]?.trim();
     if (!value) continue;
-    if (value.length > limits[key] || !ai.locallyAcceptable(value)) throw new GameError("bad_text");
+    if (value.length > DILEMMA_LIMITS[key] || !ai.locallyAcceptable(value)) throw new GameError("bad_text");
     next[key] = value;
   }
   await db.query("update dilemmas set payload = $2 where id = $1", [d.id, json(next)]);

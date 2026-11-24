@@ -34,6 +34,13 @@
     "language": "Interface language",
     "choose": "Choose…"
   },
+  "login": {
+    "title": "Host login",
+    "hint": "Enter the host password to open and control rooms. Players don't need it.",
+    "password": "Host password",
+    "submit": "Log in",
+    "logout": "Log out"
+  },
   "errors": {
     "room_full": "This room is full.",
     "locked": "The host locked this room.",
@@ -53,6 +60,9 @@
     "already_joined": "This browser already has a seat in this room.",
     "nickname_taken": "That nickname is taken.",
     "bad_text": "That text is too long or can't be used.",
+    "login_required": "Log in again to control this room.",
+    "bad_password": "That password is not correct.",
+    "login_not_configured": "Hosting is not available: the host password has not been set up on the server.",
     "generic": "That didn't work. Try again."
   },
   "lobby": {

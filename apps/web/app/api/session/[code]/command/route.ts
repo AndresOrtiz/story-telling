@@ -1,6 +1,7 @@
 import { z } from "zod";
 import * as game from "@cs/workflows";
 import { handle } from "@/lib/api";
+import { assertHostLogin, mayHost } from "@/lib/host-login";
 
 const id = z.uuid();
 const HOST_ACTIONS = [
@@ -59,10 +60,25 @@ const Command = z.discriminatedUnion("type", [
   z.object({ type: z.literal("delete_me") }),
 ]);
 
+/** Everything else needs the host login, so a new command is protected until it is listed here. */
+const PLAYER_COMMANDS: ReadonlySet<string> = new Set<z.infer<typeof Command>["type"]>([
+  "heartbeat",
+  "join",
+  "recover",
+  "select",
+  "vote",
+  "writein",
+  "endorse",
+  "share_profile",
+  "delete_me",
+]);
+
 export const POST = (req: Request, { params }: { params: Promise<{ code: string }> }) =>
   handle(async (user): Promise<unknown> => {
     const code = (await params).code.toUpperCase();
     const c = Command.parse(await req.json());
+    // Co-hosts are not owners: they need no login, and the command itself checks them.
+    if (!PLAYER_COMMANDS.has(c.type) && !(await mayHost()) && (await game.isOwner(code, user))) await assertHostLogin();
     switch (c.type) {
       case "heartbeat":
         return game.heartbeat(code, user);

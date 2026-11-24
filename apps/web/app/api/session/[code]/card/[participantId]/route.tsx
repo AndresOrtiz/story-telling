@@ -1,12 +1,13 @@
 import { ImageResponse } from "next/og";
 import { GameError, snapshot } from "@cs/workflows";
 import { handle } from "@/lib/api";
+import { mayHost } from "@/lib/host-login";
 
 /** Profile card image. Visible to the group only after its owner shared it. */
 export const GET = (_req: Request, { params }: { params: Promise<{ code: string; participantId: string }> }) =>
   handle(async (userId) => {
     const { code, participantId } = await params;
-    const snap = await snapshot(code.toUpperCase(), userId);
+    const snap = await snapshot(code.toUpperCase(), userId, null, undefined, await mayHost());
     if ("limited" in snap) throw new GameError("forbidden", 403);
     const p = snap.analysis?.shared.find((x) => x.participantId === participantId);
     if (!p) throw new GameError("not_found", 404);

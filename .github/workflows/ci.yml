@@ -22,4 +22,4 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm --filter @cs/web exec playwright install --with-deps chromium
-      - run: pnpm e2e --project=chromium
+      - run: pnpm e2e --project=chromium --project=login

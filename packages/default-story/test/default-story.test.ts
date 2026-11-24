@@ -17,6 +17,10 @@ describe("default story", () => {
     expect(new Set(d.DEFAULT_DILEMMAS.map((x) => x.dilemma.title)).size).toBe(15);
     for (const { dilemma, outcomes } of d.DEFAULT_DILEMMAS) {
       Dilemma.parse(dilemma);
+      const words = (s: string) => s.split(/\s+/).length;
+      // The same lengths the AI is asked for.
+      expect([dilemma.title, words(dilemma.context) <= 45, words(dilemma.moral_conflict) <= 10]).toEqual([dilemma.title, true, true]);
+      for (const o of dilemma.options) expect([o.label, words(o.description) <= 14, words(o.visible_consequence) <= 14]).toEqual([o.label, true, true]);
       expect([dilemma.title, dilemmaProblems(dilemma, bible)]).toEqual([dilemma.title, []]);
       for (const o of dilemma.options) expect(outcomes[o.key]!.length).toBeGreaterThan(40);
     }

@@ -1,13 +1,14 @@
 import { getTranslations } from "next-intl/server";
 import { exportSession, GameError } from "@cs/workflows";
 import { handle } from "@/lib/api";
+import { mayHost } from "@/lib/host-login";
 import { renderStorybook } from "@/lib/storybook";
 
 export const maxDuration = 60;
 
 export const GET = (_req: Request, { params }: { params: Promise<{ code: string }> }) =>
   handle(async (userId) => {
-    const data = await exportSession((await params).code.toUpperCase(), userId);
+    const data = await exportSession((await params).code.toUpperCase(), userId, await mayHost());
     if (!data.story) throw new GameError("no_story", 404);
     const t = await getTranslations("story");
     const pdf = await renderStorybook(data, {

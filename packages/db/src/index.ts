@@ -74,6 +74,11 @@ export async function createPostgresDb(url: string): Promise<Db> {
   const sql = postgres(url, {
     prepare: false,
     max: 5,
+    // One query at a time per connection: Supabase's pooler (Supavisor before 2.10) loses the answers of pipelined
+    // queries, and the caller then waits forever. For the same reason, never use Promise.all inside a transaction.
+    max_pipeline: 1,
+    // A pooler that stops answering becomes an error instead of an endless wait (seconds).
+    query_timeout: 30,
     idle_timeout: 20,
     // Values arrive as JSON text already; the default serializer would encode them twice.
     types: {

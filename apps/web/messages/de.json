@@ -34,6 +34,13 @@
     "language": "Sprache der Oberfläche",
     "choose": "Auswählen…"
   },
+  "login": {
+    "title": "Anmeldung für Gastgeber",
+    "hint": "Gib das Gastgeber-Passwort ein, um Räume zu öffnen und zu leiten. Spieler brauchen es nicht.",
+    "password": "Gastgeber-Passwort",
+    "submit": "Anmelden",
+    "logout": "Abmelden"
+  },
   "errors": {
     "room_full": "Dieser Raum ist voll.",
     "locked": "Die Spielleitung hat diesen Raum gesperrt.",
@@ -53,6 +60,9 @@
     "already_joined": "Dieser Browser hat schon einen Platz in diesem Raum.",
     "nickname_taken": "Dieser Spitzname ist vergeben.",
     "bad_text": "Dieser Text ist zu lang oder kann nicht verwendet werden.",
+    "login_required": "Melde dich erneut an, um diesen Raum zu leiten.",
+    "bad_password": "Das Passwort ist nicht richtig.",
+    "login_not_configured": "Räume können nicht geöffnet werden: Das Gastgeber-Passwort ist auf dem Server nicht eingerichtet.",
     "generic": "Das hat nicht geklappt. Versuche es noch einmal."
   },
   "lobby": {

@@ -1,5 +1,5 @@
 /** Bump when a prompt changes. Stored with cached title themes. */
-export const PROMPT_VERSION = "1";
+export const PROMPT_VERSION = "3";
 
 export type Task =
   | "title.extract"

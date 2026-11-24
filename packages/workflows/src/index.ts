@@ -1,7 +1,7 @@
 import { getDb } from "@cs/db";
 import { access, fillMissingSelections, requireHost } from "./commands.ts";
 import { hostAction, type HostAction } from "./flow.ts";
-import { inngest, runJob, type Job } from "./dispatch.ts";
+import { concurrencyLimit, inngest, runJob, type Job } from "./dispatch.ts";
 import { deleteMedia } from "./store.ts";
 import "./jobs.ts";
 
@@ -34,9 +34,11 @@ export async function cleanup(days = 30): Promise<number> {
   return rows.length;
 }
 
+const limit = concurrencyLimit();
+
 export const functions = [
   inngest.createFunction(
-    { id: "run-job", retries: 1, concurrency: [{ limit: 20 }, { limit: 4, key: "event.data.sessionId" }], triggers: [{ event: "cs/job" }] },
+    { id: "run-job", retries: 1, concurrency: [{ limit }, { limit: Math.min(4, limit), key: "event.data.sessionId" }], triggers: [{ event: "cs/job" }] },
     async ({ event }) => runJob(event.data as Job),
   ),
   inngest.createFunction({ id: "cleanup", triggers: [{ cron: "0 4 * * *" }] }, async () => ({ deleted: await cleanup() })),

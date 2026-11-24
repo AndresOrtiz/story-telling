@@ -1,22 +1,30 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-import { LANGUAGE_NAMES, LANGUAGES, type SessionConfig } from "@cs/schemas";
+import { useEffect, useRef, useState } from "react";
+import { DILEMMA_LIMITS, LANGUAGE_NAMES, LANGUAGES, type SessionConfig } from "@cs/schemas";
 import type { HostAction, Snapshot } from "@cs/workflows";
 import { shareLink, useSession, useWakeLock, type Session } from "@/lib/client";
+import { HostLogin } from "./host-login";
 import { JoinForm, PlayBody } from "./player";
 import { JoinCard, PlayerChips, readingMs, shownPhase, StageView } from "./stage";
 import { ActionButton, Banners, Button, Check, Countdown, inputClass, Panel, SettingsMenu, useErrorText } from "./ui";
 
-export function ConfigForm({ value: saved, onChange: save }: { value: SessionConfig; onChange: (patch: Partial<SessionConfig>) => void }) {
+export function ConfigForm({ value: saved, onChange: save }: { value: SessionConfig; onChange: (patch: Partial<SessionConfig>) => Promise<boolean> | void }) {
   const t = useTranslations("config");
-  // Shows changes at once; the saved configuration replaces them when it arrives.
-  const [value, setValue] = useState(saved);
+  // Shows this browser's changes at once, on top of the saved configuration, until the server has them or refuses them.
+  const [mine, setMine] = useState<Partial<SessionConfig>>({});
+  const value = { ...saved, ...mine };
+  const latest = useRef(saved);
   const key = JSON.stringify(saved);
-  useEffect(() => setValue(JSON.parse(key) as SessionConfig), [key]);
-  const onChange = (patch: Partial<SessionConfig>) => {
-    setValue((v) => ({ ...v, ...patch }));
-    save(patch);
+  const drop = (done: Partial<SessionConfig>) =>
+    setMine((m) => Object.fromEntries(Object.entries(m).filter(([k, v]) => done[k as keyof SessionConfig] !== v)));
+  useEffect(() => {
+    latest.current = JSON.parse(key) as SessionConfig;
+    drop(latest.current);
+  }, [key]);
+  const onChange = async (patch: Partial<SessionConfig>) => {
+    setMine((m) => ({ ...m, ...patch }));
+    drop((await save(patch)) === false ? patch : latest.current);
   };
   const number = (key: "dilemmas" | "maxPlayers" | "discussionSeconds", min: number, max: number) => (
     <label className="block space-y-1">
@@ -38,7 +46,7 @@ export function ConfigForm({ value: saved, onChange: save }: { value: SessionCon
     </label>
   );
   const toggle = (key: "personas" | "writeIns" | "predictions" | "spectators" | "builtInStory") => (
-    <Check name={key} checked={value[key]} save={(v) => onChange({ [key]: v })}>
+    <Check name={key} checked={value[key]} save={(v) => void onChange({ [key]: v })}>
       {t(key)}
     </Check>
   );
@@ -293,9 +301,9 @@ function Editorial({ session }: { session: Session }) {
             if (await send({ type: "edit_dilemma", ...edit })) setEdit(null);
           }}
         >
-          <input aria-label={t("editTitle")} className={inputClass} maxLength={70} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
-          <textarea aria-label={t("editContext")} className={`${inputClass} min-h-32`} maxLength={1200} value={edit.context} onChange={(e) => setEdit({ ...edit, context: e.target.value })} />
-          <input aria-label={t("editQuestion")} className={inputClass} maxLength={240} value={edit.question} onChange={(e) => setEdit({ ...edit, question: e.target.value })} />
+          <input aria-label={t("editTitle")} className={inputClass} maxLength={DILEMMA_LIMITS.title} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
+          <textarea aria-label={t("editContext")} className={`${inputClass} min-h-32`} maxLength={DILEMMA_LIMITS.context} value={edit.context} onChange={(e) => setEdit({ ...edit, context: e.target.value })} />
+          <input aria-label={t("editQuestion")} className={inputClass} maxLength={DILEMMA_LIMITS.question} value={edit.question} onChange={(e) => setEdit({ ...edit, question: e.target.value })} />
           <div className="flex gap-2">
             <Button type="submit" kind="primary">
               {t("save")}
@@ -420,7 +428,17 @@ export function HostApp({ code }: { code: string }) {
   const errorText = useErrorText();
   const [tab, setTab] = useState<(typeof TABS)[number]>("now");
   useWakeLock();
-  const { snap, error, limited } = session;
+  const { snap, error, limited, notice } = session;
+  if (limited?.loginRequired || snap?.me.loginRequired || notice === "login_required") {
+    return (
+      <main className="mx-auto max-w-md p-4 pt-12">
+        <Panel>
+          {/* Logging in does not change the state version, so the page starts over. */}
+          <HostLogin heading="h1" onDone={() => location.reload()} />
+        </Panel>
+      </main>
+    );
+  }
   if (error) return <p className="p-6 text-xl">{errorText(error)}</p>;
   if (limited || (snap && !snap.me.isHost)) return <p className="p-6 text-xl">{t("notHost")}</p>;
   if (!snap) return <p className="p-6 text-muted">{t("loading")}</p>;
@@ -429,7 +447,7 @@ export function HostApp({ code }: { code: string }) {
   const settings = (
     <div className="space-y-5">
       <Links snap={snap} />
-      {lobby ? <ConfigForm value={snap.config} onChange={(patch) => void session.send({ type: "config", config: patch })} /> : null}
+      {lobby ? <ConfigForm value={snap.config} onChange={(patch) => session.send({ type: "config", config: patch })} /> : null}
     </div>
   );
   // On phones one tab is visible at a time; larger screens show preview, controls and players side by side.

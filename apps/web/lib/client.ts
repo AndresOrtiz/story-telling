@@ -60,6 +60,7 @@ export function useSession(code: string, stageToken?: string | null): Session {
   const polls = useRef(0);
   const busy = useRef(false);
   const again = useRef(false);
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
 
   const refresh = useCallback(async () => {
     if (busy.current) {
@@ -135,8 +136,11 @@ export function useSession(code: string, stageToken?: string | null): Session {
 
   const send: Send = useCallback(
     async (command) => {
+      // Settings are saved one after the other, and nothing overtakes them: not another setting and not the start.
+      const sent = saving.current.then(() => api(`/api/session/${code}/command`, command));
+      if (command.type === "config") saving.current = sent.catch(() => {});
       try {
-        await api(`/api/session/${code}/command`, command);
+        await sent;
         setNotice(null);
         return true;
       } catch (e) {

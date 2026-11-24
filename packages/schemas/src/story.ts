@@ -125,30 +125,33 @@ export const Bible = z.object({
 export type Bible = z.infer<typeof Bible>;
 
 /* ---------- Dilemmas (§5 Stage 4) ---------- */
+/** Hard limits, well above the lengths the prompt asks for: going over them costs a retry. */
+export const DILEMMA_LIMITS = { title: 70, context: 420, question: 160 } as const;
+
 export const DilemmaOption = z.object({
   key: OptionKey,
   label: z.string().max(90),
-  description: z.string().max(260),
-  visible_consequence: z.string().max(220),
-  hidden_consequence: z.string().max(300),
-  rationale: z.string().max(240),
+  description: z.string().max(150),
+  visible_consequence: z.string().max(150),
+  hidden_consequence: z.string().max(220),
+  rationale: z.string().max(220),
   value_tags: ValueTags,
 });
 export type DilemmaOption = z.infer<typeof DilemmaOption>;
 
 export const Dilemma = z.object({
-  title: z.string().max(70),
-  narrative_connection: z.string().max(400),
-  context: z.string().max(1200),
-  moral_conflict: z.string().max(300),
-  question: z.string().max(240),
+  title: z.string().max(DILEMMA_LIMITS.title),
+  narrative_connection: z.string().max(220),
+  context: z.string().max(DILEMMA_LIMITS.context),
+  moral_conflict: z.string().max(140),
+  question: z.string().max(DILEMMA_LIMITS.question),
   format: z.enum(["single", "multiple"]),
-  format_reason: z.string().max(240),
+  format_reason: z.string().max(200),
   min_select: z.number().int().min(1).max(6),
   max_select: z.number().int().min(1).max(6),
   exclusive: z.array(z.array(OptionKey).length(2)).max(8).describe("Pairs of options that cannot be chosen together"),
   options: z.array(DilemmaOption).min(2).max(6),
-  stakes: z.string().max(300),
+  stakes: z.string().max(140),
   featured_character_ids: z.array(z.string()).max(6),
   location_id: z.string(),
   image: ImageBrief,

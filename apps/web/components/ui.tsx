@@ -163,6 +163,17 @@ export function Typewriter({ text, className = "" }: { text: string; className?:
   );
 }
 
+/** TMDB requires its unmodified logo next to the notice. The file comes from themoviedb.org/about/logos-attribution. */
+export function Attribution({ className = "" }: { className?: string }) {
+  const t = useTranslations("selection");
+  return (
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted ${className}`}>
+      <img src="/tmdb.svg" alt="TMDB" width={92} height={12} className="h-3 w-auto" data-testid="tmdb-logo" />
+      <p className="min-w-60 flex-1">{t("attribution")}</p>
+    </div>
+  );
+}
+
 const ERROR_KEYS = [
   "room_full",
   "locked",
@@ -182,6 +193,9 @@ const ERROR_KEYS = [
   "already_joined",
   "nickname_taken",
   "bad_text",
+  "login_required",
+  "bad_password",
+  "login_not_configured",
 ] as const;
 
 export function useErrorText() {

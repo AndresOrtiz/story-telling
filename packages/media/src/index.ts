@@ -8,6 +8,8 @@ export const FALLBACK_IMAGE_MODEL = () => process.env.GEMINI_FALLBACK_IMAGE_MODE
 /** Official price per 1K image of both models, 2026-11-23. */
 const IMAGE_COST_USD = 0.0336;
 const TIMEOUT_MS = 60_000;
+/** Less time than this is not worth a call. */
+const MIN_CALL_MS = 5_000;
 
 export const placeholders = {
   keyArt: "/placeholders/key-art.svg",
@@ -24,9 +26,9 @@ export const hasGeminiKey = () => {
 
 type Aspect = "16:9" | "1:1";
 export type Reference = { mimeType: string; base64: string };
-export type ImageClient = (req: { model: string; prompt: string; references: Reference[]; aspect: Aspect }) => Promise<Buffer>;
+export type ImageClient = (req: { model: string; prompt: string; references: Reference[]; aspect: Aspect; timeoutMs: number }) => Promise<Buffer>;
 
-const gemini: ImageClient = async ({ model, prompt, references, aspect }) => {
+const gemini: ImageClient = async ({ model, prompt, references, aspect, timeoutMs }) => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
     model,
@@ -42,7 +44,7 @@ const gemini: ImageClient = async ({ model, prompt, references, aspect }) => {
     config: {
       responseModalities: ["IMAGE"],
       imageConfig: { aspectRatio: aspect },
-      abortSignal: AbortSignal.timeout(TIMEOUT_MS),
+      abortSignal: AbortSignal.timeout(timeoutMs),
     },
   });
   const data = response.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData?.data;
@@ -94,6 +96,8 @@ export async function createImage(req: {
   path: string;
   store: Store;
   placeholder: string;
+  /** Moment (ms) after which nothing may be started or still running. */
+  deadline?: number;
 }): Promise<GeneratedImage> {
   const run = client ?? (hasGeminiKey() ? gemini : null);
   const fallback = (costUsd = 0): GeneratedImage => ({
@@ -106,12 +110,18 @@ export async function createImage(req: {
   });
   if (!req.enabled || !run) return fallback();
   for (const model of [PRIMARY_IMAGE_MODEL(), FALLBACK_IMAGE_MODEL()]) {
+    const left = req.deadline === undefined ? Infinity : req.deadline - Date.now();
+    if (left < MIN_CALL_MS) {
+      console.error(`Image generation with ${model} skipped: no time left in this job`);
+      break;
+    }
     try {
       const raw = await run({
         model,
         prompt: req.prompt,
         references: (req.references ?? []).slice(0, 3),
         aspect: req.aspect ?? "16:9",
+        timeoutMs: Math.floor(Math.min(TIMEOUT_MS, left)),
       });
       const { data: webp, info } = await sharp(raw).webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
       const tiny = await sharp(raw).resize(32, 32, { fit: "inside" }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });

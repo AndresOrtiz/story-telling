@@ -63,7 +63,8 @@ export function defaultDilemma(k: number, n: number, previous: { title: string; 
   const { dilemma } = DEFAULT_DILEMMAS[defaultIndex(k, n) - 1]!;
   if (!previous) return dilemma;
   const echo = `After "${previous.title}", the city still talks about your decision: ${previous.labels.join("; ")}.`;
-  return { ...dilemma, narrative_connection: `${echo} ${dilemma.narrative_connection}`.slice(0, 400) };
+  const both = `${echo} ${dilemma.narrative_connection}`;
+  return { ...dilemma, narrative_connection: both.length <= 220 ? both : echo.slice(0, 220) };
 }
 
 export function defaultConsequence(input: {

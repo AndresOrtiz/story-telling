@@ -414,6 +414,8 @@ export async function revealUniverse(sessionId: string): Promise<void> {
 }
 
 const STUCK_MS = 5 * 60_000;
+/** Inngest normally starts a job within seconds. After this time the job runs in this process instead. */
+const PICKUP_MS = 45_000;
 
 /** Expired timers and jobs that died with their server. Called on every snapshot read. */
 export async function tick(s: r.SessionRow): Promise<boolean> {
@@ -447,7 +449,10 @@ export async function tick(s: r.SessionRow): Promise<boolean> {
     const dead = job?.status === "running" ? age > STUCK_MS : waiting > 10_000;
     if (dead) {
       if (job) await db.query("update jobs set status = 'failed' where session_id = $1 and kind = $2 and k = $3", [s.id, c.job, c.k]);
-      await dispatch({ kind: c.job, sessionId: s.id, k: c.k, attempt: (job?.attempt ?? -1) + 1, forceDefault: Boolean(job) });
+      // A job that Inngest starts later, after all, finds its work claimed and does nothing.
+      const here = waiting > PICKUP_MS;
+      if (here && !job) console.warn(`[jobs] ${c.job} of session ${s.id} did not start in ${Math.round(waiting / 1000)} s, running it in this process`);
+      await dispatch({ kind: c.job, sessionId: s.id, k: c.k, attempt: (job?.attempt ?? -1) + 1, forceDefault: Boolean(job) }, here);
     }
   }
   return false;

@@ -16,7 +16,7 @@ import * as builtin from "@cs/default-story";
 import { createImage, imagePrompt, placeholders, type Reference } from "@cs/media";
 import type { Bible, ImageBrief, Universe } from "@cs/schemas";
 import { getDb, json, type Sql } from "@cs/db";
-import { dispatch, registerHandlers, type Job } from "./dispatch.ts";
+import { dispatch, jobTime, registerHandlers, type Job } from "./dispatch.ts";
 import { nextAttempt, revealUniverse, settle } from "./flow.ts";
 import { decisionsOf, memoryOf, turnsOf } from "./history.ts";
 import * as r from "./rows.ts";
@@ -36,10 +36,15 @@ async function spent(q: Sql, sessionId: string): Promise<number> {
 /** Text AI for a session. Every call is logged; nothing is called once the session uses the built-in story. */
 export async function aiContext(s: r.SessionRow | null, force = false): Promise<ai.CallContext> {
   const db = await getDb();
-  const usable =
-    !force && (!s || (s.content_source === "ai" && !s.config.builtInStory && (await spent(db, s.id)) < budget()));
+  let off: string | undefined;
+  if (force) off = "an earlier attempt of this job was stopped or failed";
+  else if (s?.config.builtInStory) off = "the host chose the built-in story";
+  else if (s && s.content_source !== "ai") off = "the session already uses the built-in story";
+  else if (s && (await spent(db, s.id)) >= budget()) off = "the session budget is spent";
   return {
-    enabled: usable,
+    enabled: !off,
+    disabledReason: off,
+    deadline: jobTime()?.text,
     log: async (e) => {
       await db.query(
         `insert into ai_calls (session_id, task, model, input_tokens, output_tokens, cached_tokens, latency_ms, cost_usd, status, error)
@@ -69,9 +74,11 @@ async function logFallback(s: r.SessionRow, task: string, error = "") {
 }
 
 /** From dilemma k on, this session uses the built-in story. */
-async function switchToDefault(s: r.SessionRow, k: number) {
+async function switchToDefault(s: r.SessionRow, k: number, reason = "") {
   const db = await getDb();
-  await logFallback(s, "session");
+  await logFallback(s, "session", reason.slice(0, 500));
+  // Without a key the built-in story is what the host expects.
+  if (ai.aiConfigured()) console.error(`[ai] session ${s.id} continues with the built-in story from dilemma ${k}: ${reason}`);
   await db.query(
     "update sessions set content_source = 'default', fallback_from_k = coalesce(fallback_from_k, $2), state_version = state_version + 1 where id = $1",
     [s.id, k],
@@ -125,6 +132,7 @@ async function illustrate(s: r.SessionRow, bible: Pick<Bible, "universe" | "char
     path: `${s.id}/${job.role.replace(/[^a-z0-9-]/gi, "-")}-${Date.now()}`,
     store,
     placeholder: job.placeholder,
+    deadline: jobTime()?.end,
   });
   const [row] = await db.query<{ id: string }>(
     `insert into assets (session_id, role, kind, url, alt, blurhash, width, height, provider, prompt, cost_usd)
@@ -196,9 +204,9 @@ async function universe(job: Job & { attempt: number }) {
   const players = await r.activePlayers(db, s.id);
   const ctx = await aiContext(s, job.forceDefault);
   const withThemes = picked.filter((p) => p.t.themes);
-  const { value, source } = await ai.withFallback(
+  const { value, source, reason } = await ai.withFallback(
     async () => {
-      if (withThemes.length === 0) throw new ai.AiUnavailable("No themes");
+      if (withThemes.length === 0) throw new ai.AiUnavailable(ai.unavailableReason(ctx) ?? "no themes could be read from the titles");
       const synthesis = await ai.synthesizeThemes(
         ctx,
         withThemes.map((p) => ({ themes: p.t.themes!, favorite: p.is_favorite, loveTags: p.love_tags })),
@@ -229,7 +237,7 @@ async function universe(job: Job & { attempt: number }) {
   const newest = (await nextAttempt(db, s.id, "universe", 0)) - 1;
   if (newest !== job.attempt) return;
   if (source === "default" && s.content_source === "ai") {
-    await switchToDefault(s, 0);
+    await switchToDefault(s, 0, reason);
     s = await session(s.id);
   }
   const bible = createBible(value);
@@ -307,7 +315,7 @@ async function dilemma(job: Job) {
   const history = await memoryOf(db, s.id);
   const last = history.at(-1);
   const ctx = await aiContext(s, job.forceDefault);
-  const { value, source } = await ai.withFallback(
+  const { value, source, reason } = await ai.withFallback(
     async () =>
       ai.generateDilemma(ctx, frameOf(s), { bible: current.bible, k: job.k, history, deny: await denyList(db, s.id) }),
     () => builtin.defaultDilemma(job.k, s.dilemma_count, last ? { title: last.title, labels: last.decision } : null),
@@ -316,7 +324,7 @@ async function dilemma(job: Job) {
   // The universe may have been regenerated meanwhile; then this dilemma belongs to a story that no longer exists.
   const still = await r.latestBible(db, s.id);
   if (still?.version !== current.version) return;
-  if (source === "default" && s.content_source === "ai") await switchToDefault(s, job.k);
+  if (source === "default" && s.content_source === "ai") await switchToDefault(s, job.k, reason);
 
   const inserted = await db.transaction(async (tx) => {
     const [row] = await tx.query<{ id: string }>(
@@ -361,7 +369,7 @@ async function consequence(job: Job) {
   const chosen = turn.options.filter((o) => turn.decision.option_keys.includes(o.key));
   const byFate = turn.decision.resolved_by === "fate";
   const ctx = await aiContext(s, job.forceDefault);
-  const { value, source } = await ai.withFallback(
+  const { value, source, reason } = await ai.withFallback(
     async () => {
       if (turn.dilemma.source !== "ai") throw new ai.AiUnavailable("Built-in dilemma");
       return ai.generateConsequence(ctx, frameOf(s), {
@@ -391,7 +399,7 @@ async function consequence(job: Job) {
         byFate,
       }),
   );
-  if (source === "default" && s.content_source === "ai") await switchToDefault(s, job.k);
+  if (source === "default" && s.content_source === "ai") await switchToDefault(s, job.k, reason);
 
   const { bible, rejected } = applyDiff(current.bible, value.diff, job.k);
   const own = source === "ai" && (s.dilemma_count <= 8 || job.k % 2 === 1);

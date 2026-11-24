@@ -14,7 +14,7 @@ import {
 } from "@cs/schemas";
 import { z } from "zod";
 import { generate, type CallContext } from "./generate.ts";
-import { bibleBlock, RULES, storySystem, untrusted, type StoryFrame } from "./prompts.ts";
+import { bibleBlock, HARD_DILEMMA, RULES, storySystem, untrusted, type StoryFrame } from "./prompts.ts";
 
 const leaks = (value: unknown, deny: string[]) =>
   leakedTerms(value, deny).map((t) => `Remove the term "${t}", it belongs to an existing work.`);
@@ -48,7 +48,7 @@ export function createUniverse(
       system: storySystem(frame),
       user: [
         `Create one original universe and a Story Spine of exactly ${frame.n} beats (ids beat-1 to beat-${frame.n}).`,
-        `Acts of the beats in order: ${Array.from({ length: frame.n }, (_, i) => actOf(i + 1, frame.n)).join(", ")}. Each beat has a purpose, not a fixed plot. The last beat is the climax.`,
+        `Acts of the beats in order: ${Array.from({ length: frame.n }, (_, i) => actOf(i + 1, frame.n)).join(", ")}. Each beat has a purpose, not a fixed plot, and sets two things against each other that the players will both want to protect. The last beat is the climax.`,
         "Define 3 ending families with different value profiles. Value axes (-2 to 2): risk cautious/bold, trust suspicious/trusting, collective individual/common good, authority challenges/upholds rules, sacrifice self-preserving/self-sacrificing, conflict confrontational/conciliatory, pragmatism idealistic/pragmatic, time short/long term.",
         `Create exactly ${input.players} personas, one per player: original roles inside this world, each with a one-line inner monologue. Use lowercase ids with hyphens everywhere.`,
         "All characters start alive. Every character needs a precise visual_descriptor so that illustrations stay consistent.",
@@ -86,6 +86,7 @@ export function generateDilemma(
 ) {
   const beat = input.bible.spine.beats[input.k - 1];
   const system = storySystem(frame);
+  let reviewed = false;
   return generate(
     ctx,
     "dilemma.generate",
@@ -101,7 +102,9 @@ export function generateDilemma(
         input.k > 1
           ? "narrative_connection must link to the consequence of the previous decision. Let a minority position return when it fits."
           : "narrative_connection introduces the first problem.",
-        "Write 3 to 5 options with keys A, B, C... Every option needs a defensible rationale and a real cost. Options must differ in values, with no obviously correct one. visible_consequence is shown to players, hidden_consequence stays secret.",
+        `Make it a very difficult moral situation that people will argue about. ${HARD_DILEMMA} Within the content rating, harm can also be a broken trust, a lost home, a betrayal or a truth that destroys someone. Make it harder than the previous dilemmas.`,
+        "Keep it very short. People read it aloud from a screen, so every word must earn its place: plain words, no scenery, no backstory they already know. Word limits: title 5, narrative_connection 15 (one sentence), context 45 (at most 3 sentences: what is happening, what each side loses, why now), moral_conflict 8 (one value against another), question 14, stakes 10, and per option label 7, description 12 (what you do), visible_consequence 12 (the price, as a fact: who loses what for good, by name), hidden_consequence 20, rationale 15. format_reason 12.",
+        "Write 2 to 4 options with keys A, B, C... Prefer 2 or 3. Options must differ in values, and none may be obviously right. visible_consequence is shown to players, hidden_consequence stays secret.",
         "Choose single or multiple from the situation and justify it in format_reason. For single, min_select and max_select are 1. For multiple, max_select is at least 2, and exclusive lists pairs that cannot go together.",
         "Use only character ids and a location_id that exist in the Story Bible. image describes the single moment to illustrate. alt_text describes it for a screen reader.",
         `History:\n${JSON.stringify(input.history)}`,
@@ -110,11 +113,13 @@ export function generateDilemma(
     async (d) => {
       const hard = [...dilemmaProblems(d, input.bible), ...leaks(d, input.deny)];
       if (hard.length) return hard;
-      // The judge is advisory: if it cannot run, the deterministic checks are enough.
+      // The judge is advisory: it asks for one better version at most, and if it cannot run, the checks above are enough.
+      if (reviewed) return [];
+      reviewed = true;
       try {
         const verdict = await generate(ctx, "dilemma.validate", DilemmaVerdict, {
           system:
-            "You review a dilemma for a storytelling game. Report a problem only if it clearly breaks a rule: one option is obviously right, two options are the same choice, it contradicts canon, it ignores the previous decision (k > 1), or it exceeds the content rating. Return an empty list when it is fine.",
+            "You review a dilemma for a storytelling game. Report a problem only if it clearly breaks a rule: one option is obviously right, an option costs nothing or avoids the choice, two options are the same choice, it contradicts canon, it ignores the previous decision (k > 1), or it exceeds the content rating. Return an empty list when it is fine. What a good dilemma looks like: " + HARD_DILEMMA,
           user: `Rating: ${frame.rating}. Dilemma ${input.k}.\nPrevious turn: ${JSON.stringify(input.history.at(-1) ?? null)}\nCharacters: ${JSON.stringify(input.bible.characters.map((c) => ({ id: c.id, status: c.status })))}\nDilemma: ${JSON.stringify(d)}`,
         });
         return verdict.problems;

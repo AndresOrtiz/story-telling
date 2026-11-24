@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { ProfileView, Snapshot } from "@cs/workflows";
 import type { Session } from "@/lib/client";
 import { SplitChart, TraitBars, VoteBars } from "./charts";
-import { Art, Countdown, Eyebrow, Panel, Typewriter } from "./ui";
+import { Art, Attribution, Countdown, Eyebrow, Panel, Typewriter } from "./ui";
 
 export const shownPhase = (s: Snapshot) => (s.phase === "paused" ? s.pausedFrom! : s.phase);
 
@@ -117,7 +117,7 @@ function Selection({ snap }: { snap: Snapshot }) {
       <Title>{t("stageTitle")}</Title>
       <p className="text-xl text-muted">{t("progress", { ready: s.ready, total: s.total })}</p>
       <CoverWall snap={snap} />
-      <p className="text-sm text-muted">{t("attribution")}</p>
+      <Attribution className="mx-auto max-w-3xl text-left" />
     </div>
   );
 }
@@ -353,7 +353,8 @@ export function WriteInList({ snap }: { snap: Snapshot }) {
 function FinalVote({ snap, skew }: { snap: Snapshot; skew: number }) {
   const t = useTranslations("final");
   const label = (key: string) => snap.dilemma!.options.find((o) => o.key === key)?.label ?? key;
-  const round = snap.round!;
+  const round = snap.round;
+  if (!round) return null;
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <Title>{round.kind === "revote" ? t("tie") : t("title")}</Title>

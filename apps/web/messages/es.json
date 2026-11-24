@@ -34,6 +34,13 @@
     "language": "Idioma de la interfaz",
     "choose": "Elegir…"
   },
+  "login": {
+    "title": "Acceso del anfitrión",
+    "hint": "Escribe la contraseña de anfitrión para abrir y dirigir salas. Los jugadores no la necesitan.",
+    "password": "Contraseña de anfitrión",
+    "submit": "Entrar",
+    "logout": "Cerrar sesión"
+  },
   "errors": {
     "room_full": "Esta sala está llena.",
     "locked": "El anfitrión ha cerrado esta sala.",
@@ -53,6 +60,9 @@
     "already_joined": "Este navegador ya tiene un asiento en esta sala.",
     "nickname_taken": "Ese apodo ya está en uso.",
     "bad_text": "Ese texto es demasiado largo o no se puede usar.",
+    "login_required": "Vuelve a entrar para dirigir esta sala.",
+    "bad_password": "La contraseña no es correcta.",
+    "login_not_configured": "No se pueden abrir salas: la contraseña de anfitrión no está configurada en el servidor.",
     "generic": "No ha funcionado. Inténtalo de nuevo."
   },
   "lobby": {
