@@ -13,6 +13,7 @@ const config: NextConfig = {
   outputFileTracingIncludes: { "/**": ["../../supabase/migrations/*.sql"] },
   allowedDevOrigins: (process.env.DEV_ORIGINS ?? "").split(",").filter(Boolean),
   devIndicators: false,
+  agentRules: false,
   poweredByHeader: false,
   headers: async () => [
     {

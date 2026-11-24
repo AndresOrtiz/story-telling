@@ -396,8 +396,8 @@ function Links({ snap }: { snap: Snapshot }) {
   return (
     <div className="space-y-3">
       <JoinCard code={snap.code} />
-      <div className="flex flex-wrap justify-center gap-4">
-        <a className="min-h-10 underline" href={stage} target="_blank" rel="noreferrer" data-testid="stage-link">
+      <div className="flex flex-wrap items-center justify-center gap-4">
+        <a className="underline" href={stage} target="_blank" rel="noreferrer" data-testid="stage-link">
           {t("openStage")}
         </a>
         <button
@@ -454,10 +454,10 @@ export function HostApp({ code }: { code: string }) {
         <SettingsMenu />
       </header>
       {tab === "play" ? (
-        <main className="mx-auto max-w-5xl">{snap.me.participantId ? <PlayBody session={session} /> : <JoinForm session={session} code={code} />}</main>
+        <main className="@container mx-auto max-w-5xl">{snap.me.participantId ? <PlayBody session={session} /> : <JoinForm session={session} code={code} />}</main>
       ) : (
         <main className="grid gap-4 md:grid-cols-[1fr_22rem] xl:grid-cols-[1fr_22rem_22rem]">
-          <Panel className={`order-2 hidden overflow-auto md:order-1 md:block md:max-h-[85dvh] ${tab === "settings" ? "md:block" : ""}`} label={t("preview")}>
+          <Panel className={`order-2 hidden overflow-auto md:order-1 md:block md:max-h-[85dvh] ${tab === "settings" ? "md:block" : ""}`} label={t("preview")} scrolls>
             {tab === "settings" ? settings : lobby ? settings : <StageView session={session} />}
           </Panel>
           <Panel className={`order-1 md:order-2 md:block ${show("now")} h-fit`} label={t("tab_now")}>

@@ -81,7 +81,7 @@ function Waiting({ title, children }: { title: string; children?: ReactNode }) {
 function Lobby({ snap }: { snap: Snapshot }) {
   const t = useTranslations("lobby");
   return (
-    <div className="mx-auto grid max-w-6xl items-center gap-10 py-6 md:grid-cols-2">
+    <div className="mx-auto grid max-w-6xl items-center gap-10 py-6 @2xl:grid-cols-2">
       <JoinCard code={snap.code} large />
       <div className="space-y-5">
         <Title>{t("title")}</Title>
@@ -99,7 +99,6 @@ function CoverWall({ snap }: { snap: Snapshot }) {
       {snap.selection!.wall.map((x) => (
         <li key={x.title} className="rise flex h-40 w-28 flex-col justify-end overflow-hidden rounded-lg border border-line bg-raised text-left">
           {x.coverUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={x.coverUrl} alt={x.title} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
           ) : (
             <span className="p-2 font-serif text-base leading-tight">{x.title}</span>
@@ -156,7 +155,7 @@ function UniverseReveal({ snap }: { snap: Snapshot }) {
   const u = snap.universe!;
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+      <div className="grid gap-6 @4xl:grid-cols-[3fr_2fr]">
         <Art image={u.keyArt} className="aspect-video" moving />
         <div className="space-y-4">
           <Title>{u.name}</Title>
@@ -171,7 +170,7 @@ function UniverseReveal({ snap }: { snap: Snapshot }) {
           </p>
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 @4xl:grid-cols-2">
         <Panel label={t("inspired")}>
           <h2 className="mb-3 text-lg font-semibold">{t("inspired")}</h2>
           <ul className="space-y-2">
@@ -184,7 +183,7 @@ function UniverseReveal({ snap }: { snap: Snapshot }) {
         </Panel>
         <Panel label={t("people")}>
           <h2 className="mb-3 text-lg font-semibold">{t("people")}</h2>
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-3 @xl:grid-cols-2">
             {u.characters.map((c) => (
               <li key={c.id} className="flex items-center gap-3">
                 <Art image={c.portrait} className="h-14 w-14 shrink-0" />
@@ -222,7 +221,7 @@ function DilemmaHead({ snap, compact = false }: { snap: Snapshot; compact?: bool
 
 function OptionList({ snap }: { snap: Snapshot }) {
   return (
-    <ol className="grid gap-3 sm:grid-cols-2">
+    <ol className="grid gap-3 @xl:grid-cols-2">
       {snap
         .dilemma!.options.filter((o) => !o.writeIn)
         .map((o) => (
@@ -242,7 +241,7 @@ function DilemmaPresent({ snap, skew, voting }: { snap: Snapshot; skew: number; 
   const t = useTranslations("dilemma");
   const d = snap.dilemma!;
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2">
+    <div className="mx-auto grid max-w-7xl gap-6 @4xl:grid-cols-2">
       <div className="space-y-4">
         <Art image={d.image} className="aspect-video" moving />
         {voting && snap.round ? (
@@ -309,7 +308,7 @@ function Discussion({ snap, skew }: { snap: Snapshot; skew: number }) {
   const t = useTranslations("discussion");
   const label = (key: string) => snap.dilemma!.options.find((o) => o.key === key)?.label ?? key;
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
+    <div className="mx-auto grid max-w-6xl gap-8 @4xl:grid-cols-2">
       <div className="space-y-5">
         <Title>{t("title")}</Title>
         <Countdown snap={snap} skew={skew} big />
@@ -359,7 +358,7 @@ function FinalVote({ snap, skew }: { snap: Snapshot; skew: number }) {
     <div className="mx-auto max-w-5xl space-y-6">
       <Title>{round.kind === "revote" ? t("tie") : t("title")}</Title>
       <p className="text-xl">{snap.dilemma!.question}</p>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-4 @xl:grid-cols-2 @4xl:grid-cols-3">
         {round.candidates.map((c) => (
           <li key={c.id} className="rounded-2xl border border-line bg-panel p-5 text-xl font-semibold">
             {c.optionKeys.map(label).join(" + ")}
@@ -397,7 +396,7 @@ function Consequence({ snap }: { snap: Snapshot }) {
   const t = useTranslations("consequence");
   const c = snap.consequence!;
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2">
+    <div className="mx-auto grid max-w-7xl gap-8 @4xl:grid-cols-2">
       <Art image={c.image} className="aspect-video" moving />
       <div className="space-y-5">
         <DecisionLine snap={snap} />
@@ -457,7 +456,7 @@ export function GroupReport({ snap }: { snap: Snapshot }) {
       <Title>{a.group.title}</Title>
       <p className="max-w-3xl text-xl">{a.group.summary}</p>
       <p className="max-w-3xl text-muted">{a.group.hard_moments}</p>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 @4xl:grid-cols-2">
         <Panel>
           <SplitChart data={m.splitByDilemma} titles={a.titles} />
         </Panel>
@@ -469,7 +468,7 @@ export function GroupReport({ snap }: { snap: Snapshot }) {
       <ul className="space-y-1 text-muted">
         {m.mostControversial ? <li>{t("controversial", { title: a.titles[m.mostControversial] ?? "" })}</li> : null}
         {m.mostUnanimous ? <li>{t("unanimous", { title: a.titles[m.mostUnanimous] ?? "" })}</li> : null}
-        {m.alliances[0] && m.alliances[0].agreement > 0 ? (
+        {Object.keys(a.names).length > 2 && m.alliances[0] && m.alliances[0].agreement >= 0.5 ? (
           <li>{t("alliance", { a: name(m.alliances[0].a), b: name(m.alliances[0].b), percent: Math.round(m.alliances[0].agreement * 100) })}</li>
         ) : null}
         {m.independentVoices.length ? (
@@ -485,7 +484,7 @@ function Analysis({ snap }: { snap: Snapshot }) {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <GroupReport snap={snap} />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 @4xl:grid-cols-2">
         {snap.analysis!.shared.map((p) => (
           <ProfileCard key={p.participantId} profile={p} />
         ))}
@@ -608,7 +607,7 @@ export function StageView({ session }: { session: Session }) {
     }
   };
   return (
-    <div className="space-y-4" data-phase={snap.phase}>
+    <div className="@container space-y-4" data-phase={snap.phase}>
       <BuiltInNote snap={snap} />
       {body()}
     </div>

@@ -53,9 +53,20 @@ export function ActionButton({
   );
 }
 
-export function Panel({ className = "", children, label }: { className?: string; children: ReactNode; label?: string }) {
+export function Panel({
+  className = "",
+  children,
+  label,
+  scrolls,
+}: {
+  className?: string;
+  children: ReactNode;
+  label?: string;
+  /** Scrollable panels must be reachable with the keyboard. */
+  scrolls?: boolean;
+}) {
   return (
-    <section aria-label={label} className={`rounded-2xl border border-line/60 bg-panel p-4 sm:p-5 ${className}`}>
+    <section tabIndex={scrolls ? 0 : undefined} aria-label={label} className={`rounded-2xl border border-line/60 bg-panel p-4 sm:p-5 ${className}`}>
       {children}
     </section>
   );
@@ -98,7 +109,6 @@ export function Art({
   return (
     <div className={`relative overflow-hidden rounded-2xl bg-raised ${className}`}>
       {image && "blurhash" in image && image.blurhash ? <Blur hash={image.blurhash} /> : null}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={broken === url ? "/placeholders/unavailable.svg" : url}
         alt={image?.alt ?? ""}

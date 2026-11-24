@@ -16,7 +16,6 @@ export function Home({ locale }: { locale: string }) {
   const [config, setConfig] = useState(() => SessionConfig.parse({ language: LANGUAGES.find((l) => l === locale) ?? "en" }));
   return (
     <div className="relative min-h-dvh">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/placeholders/scene.svg" alt="" className="absolute inset-x-0 top-0 -z-10 h-[70vh] w-full object-cover opacity-45 [mask-image:linear-gradient(#000,transparent)]" />
       <header className="flex justify-end p-3">
         <SettingsMenu />

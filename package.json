@@ -2,6 +2,7 @@
   "name": "collective-story",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.23.0",
   "engines": {
     "node": ">=22"
   },
@@ -14,10 +15,9 @@
     "typecheck": "turbo run typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "e2e": "pnpm --filter @cs/web e2e",
+    "e2e": "pnpm build && pnpm --filter @cs/web e2e",
     "simulate": "tsx tools/simulator/src/cli.ts",
-    "db:push": "supabase db push",
-    "evals": "promptfoo eval -c packages/ai/evals/promptfooconfig.yaml"
+    "db:push": "supabase db push"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

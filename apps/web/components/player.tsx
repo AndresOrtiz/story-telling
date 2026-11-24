@@ -150,7 +150,6 @@ function SelectionForm({ session }: { session: Session }) {
                   onClick={() => add({ titleId: r.id, title: r.title, year: r.year, kind: r.kind, favorite: false, loveTags: [] })}
                 >
                   {r.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={r.coverUrl} alt="" className="h-14 w-10 rounded object-cover" referrerPolicy="no-referrer" />
                   ) : null}
                   <span>
@@ -650,7 +649,7 @@ export function PlayerApp({ code }: { code: string }) {
           {t("nudged")}
         </p>
       ) : null}
-      <main>{tab === "play" ? <PlayBody session={session} /> : <StageView session={session} />}</main>
+      <main className="@container">{tab === "play" ? <PlayBody session={session} /> : <StageView session={session} />}</main>
       <Banners session={session} />
     </div>
   );
