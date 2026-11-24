@@ -65,7 +65,7 @@ At the end the platform produces:
 |---|---|---|---|
 | AI text engine | OpenAI API | **Anthropic Claude** (Opus 5.5 / Sonnet 5.5 / Haiku 5.5) behind a provider-agnostic layer (Vercel AI SDK) | Strong long-form narrative coherence, reliable structured outputs and tool use, and prompt caching for the growing story bible. The abstraction keeps providers swappable. |
 | AI orchestration | "Backend functions" (unspecified) | **Inngest** durable workflows | Generation chains are multi-step and slow (text → image prompt → image → storage). Durable steps give retries, idempotency, concurrency limits and resume-after-crash without custom queue code. |
-| Image generation | "Image generation API" | **Google Gemini image generation** ("Nano Banana 2"-class Gemini image model) through the Gemini API, with **Imagen 4 Fast** as fallback | Gemini accepts several reference images per request, which keeps characters and art style consistent across 20–30 images (the hardest visual requirement). It is also among the cheapest production options (~$0.013 per image at 2K, as reported by a third party). |
+| Image generation | "Image generation API" | **Google Gemini image generation** (`gemini-nano-banana-2.1`) through the Gemini API, with the lighter `gemini-3.1-flash-lite-image` as fallback | Gemini accepts several reference images per request, which keeps characters and art style consistent across 20–30 images (the hardest visual requirement). Official price (checked 2026-11-23): $0.0336 per image at 1K, $0.0504 at 2K, no free tier. |
 | Narration, music, video export | TTS API, background music, FFmpeg | **Removed from the first version** (see §22) | Keeps v1 smaller, cheaper and faster to build. The slideshow is visual + text only. |
 | Real-time | Supabase Realtime | Supabase Realtime **Presence + Broadcast + Postgres Changes**, with server-authoritative state | Presence handles "who's online", Broadcast handles low-latency events, and Postgres Changes keeps state durable. |
 | State management | Implicit | **Explicit session state machine** (typed, server-side) | Prevents impossible states, enables resuming after a refresh, and keeps every screen in sync. |
@@ -589,7 +589,7 @@ dilemma JSON
   → automatic pick (vision check: matches scene? text artifacts? rating-safe?)
   → upload to Supabase Storage (WebP + blurhash placeholder)
   → update DB row → Realtime pushes URL to clients
-  fallback: Imagen 4 Fast (text prompt only, no references) → universe key art with a tinted overlay + caption (never block the session)
+  fallback: gemini-3.1-flash-lite-image → built-in placeholder image (never block the session)
 ```
 
 The host can **regenerate** any image, and the new one replaces the old one live.
@@ -597,7 +597,7 @@ The host can **regenerate** any image, and the new one replaces the old one live
 ### 7.3 Gemini integration notes
 
 - **API:** the Gemini API (Google AI Studio key) through the official `@google/genai` SDK, called only from Inngest workflows on the server. The key is never sent to the browser.
-- **Paid tier in production:** use a billing-enabled project. Free-tier availability for image models is unclear and changes often, and on Gemini's free tier Google may use the data to improve its products. Free-tier keys are acceptable only for local development with demo content.
+- **Paid tier in production:** use a billing-enabled project. Image models have no free tier (checked 2026-11-23). Imagen was shut down on August 17, 2026, so it is not used.
 - **Requests:** text prompt + reference images (portraits, location anchors) as inline image parts, with the aspect ratio set to 16:9. The response returns the image as base64, which the workflow converts to WebP and uploads to Supabase Storage.
 - **Character consistency:** the most important images (key art and portraits) are generated first, at the highest quality. Every later scene passes in the relevant portraits. If a scene features more than 3 characters, the 3 most central characters are passed as references.
 - **Rate limits:** Inngest concurrency limits per session and globally keep requests within the project's Gemini quota. On HTTP 429 the workflow retries with backoff and then falls back.
@@ -625,7 +625,7 @@ The host can **regenerate** any image, and the new one replaces the old one live
 | Storage | **Supabase Storage** (+ CDN) | Images, PDF exports |
 | Orchestration | **Inngest** | Durable AI workflows, retries, concurrency, scheduled cleanups |
 | AI text | **Anthropic Claude** (Opus 5.5 / Sonnet 5.5 / Haiku 5.5) via **Vercel AI SDK** | Universe, dilemmas, consequences, analysis, script |
-| Images | **Google Gemini image model** ("Nano Banana 2" class) via the Gemini API (`@google/genai` SDK), with **Imagen 4 Fast** as fallback | All illustrations. Model IDs are set in configuration. |
+| Images | **Google Gemini** `gemini-nano-banana-2.1` via the Gemini API (`@google/genai` SDK), with `gemini-3.1-flash-lite-image` as fallback | All illustrations. Model IDs are set in configuration. |
 | Slideshow | React + **Motion** (no video engine) | Scene playback on the Stage |
 | PDF | **React-PDF** | Storybook export |
 | Books | **Open Library** (primary) + **Google Books** (fallback) | Book search |
@@ -878,7 +878,7 @@ Text that is shown while it is being generated **streams** with a typewriter eff
 | Large-model calls (universe + spine, final script) | 2 |
 | Mid-model calls (5 dilemmas, 5 consequences, image prompts, 8 profiles + 1 group analysis) | ~25 |
 | Small-model calls (validators, summaries, moderation, extraction of uncached titles) | ~30–50 |
-| Images with Gemini (key art, ~6 portraits, 5 dilemmas, ~5 consequences, ~4 new story scenes) | ~21 (≈ $0.27–0.55 per session at ~$0.013 per image, more if 2 candidates are generated. The price is a third-party figure; confirm it on Google's pricing page.) |
+| Images with Gemini (key art, ~6 portraits, 5 dilemmas, ~5 consequences, ~4 new story scenes) | ~21 (≈ $0.71 per session at 1K or $1.06 at 2K, double if 2 candidates are generated; official prices, checked 2026-11-23) |
 
 **Controls**
 

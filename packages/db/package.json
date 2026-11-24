@@ -1,0 +1,1 @@
+{"name":"@cs/db","version":"0.0.0","private":true,"type":"module","exports":{".":"./src/index.ts"},"scripts":{"typecheck":"tsc -p ."},"dependencies":{"@electric-sql/pglite":"^0.5.17","postgres":"^4.1.1"}}

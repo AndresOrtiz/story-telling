@@ -1,0 +1,1 @@
+{"name":"@cs/media","version":"0.0.0","private":true,"type":"module","exports":{".":"./src/index.ts"},"scripts":{"typecheck":"tsc -p ."},"dependencies":{"@cs/schemas":"workspace:*","@google/genai":"^3.6.1","blurhash":"^2.0.5","sharp":"^0.35.5"}}
