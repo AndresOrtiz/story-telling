@@ -1,0 +1,1 @@
+{ "$schema": "https://turborepo.com/schema.json", "tasks": { "typecheck": {}, "build": { "outputs": [".next/**", "!.next/cache/**"] } } }

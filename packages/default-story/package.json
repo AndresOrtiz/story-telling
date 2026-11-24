@@ -1,0 +1,1 @@
+{"name":"@cs/default-story","version":"0.0.0","private":true,"type":"module","exports":{".":"./src/index.ts"},"scripts":{"typecheck":"tsc -p ."},"dependencies":{"@cs/engine":"workspace:*","@cs/schemas":"workspace:*","zod":"^4.6.7"}}

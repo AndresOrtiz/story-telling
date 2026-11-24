@@ -1,0 +1,1 @@
+{"name":"@cs/ai","version":"0.0.0","private":true,"type":"module","exports":{".":"./src/index.ts"},"scripts":{"typecheck":"tsc -p ."},"dependencies":{"@ai-sdk/anthropic":"^4.0.107","@cs/engine":"workspace:*","@cs/schemas":"workspace:*","ai":"^7.0.179","zod":"^4.6.7"}}

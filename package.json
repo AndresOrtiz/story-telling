@@ -1,0 +1,33 @@
+{
+  "name": "collective-story",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.23.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @cs/web dev",
+    "dev:inngest": "pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest",
+    "build": "pnpm --filter @cs/web build",
+    "start": "pnpm --filter @cs/web start",
+    "test": "vitest run",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "e2e": "pnpm build && pnpm --filter @cs/web e2e",
+    "simulate": "tsx tools/simulator/src/cli.ts",
+    "db:push": "supabase db push"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "eslint": "^10.15.0",
+    "prettier": "^3.10.1",
+    "supabase": "^3.2.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.13",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.1"
+  }
+}
