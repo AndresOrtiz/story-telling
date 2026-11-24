@@ -70,7 +70,7 @@ export function defaultConsequence(input: {
   k: number;
   n: number;
   dilemma: Dilemma;
-  chosen: { key: string; label: string; origin: "ai" | "write_in" }[];
+  chosen: { key: string; label: string; origin: "ai" | "write_in"; visible?: string; hidden?: string }[];
   minorityLabels: string[];
   byFate: boolean;
 }): Consequence {
@@ -79,7 +79,7 @@ export function defaultConsequence(input: {
   const parts = input.chosen.map((c) =>
     builtIn && c.origin === "ai" && outcomes[c.key]
       ? outcomes[c.key]!
-      : `The Council chose its own path: ${c.label}. The city held its breath, and then, slowly, it moved with you. Not everything went as planned, but people remembered that you had looked for another way.`,
+      : `You chose: ${c.label}. ${[c.visible, c.hidden].filter(Boolean).join(" ")} Not everything went as planned, but people remembered who made the choice and why.`,
   );
   const fate = input.byFate ? "The Council could not agree, so fate decided for it. " : "";
   const echo = input.minorityLabels.length

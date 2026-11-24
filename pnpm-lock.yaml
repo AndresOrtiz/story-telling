@@ -201,12 +201,19 @@ importers:
       '@cs/schemas':
         specifier: workspace:*
         version: link:../schemas
+      '@supabase/supabase-js':
+        specifier: ^2.119.2
+        version: 2.119.2(@opentelemetry/api@1.10.0)
       inngest:
         specifier: ^4.26.2
-        version: 4.26.2(@opentelemetry/core@3.1.1(@opentelemetry/api@1.10.0))(typescript@5.9.3)(zod@4.6.7)
+        version: 4.26.2(@opentelemetry/core@3.1.1(@opentelemetry/api@1.10.0))(next@16.4.6(@opentelemetry/api@1.10.0)(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7)
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+    devDependencies:
+      ai:
+        specifier: ^7.0.179
+        version: 7.0.179(zod@4.6.7)
 
   tools/simulator:
     dependencies:
@@ -5650,38 +5657,6 @@ snapshots:
     optionalDependencies:
       next: 16.4.6(@opentelemetry/api@1.10.0)(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react: 19.3.1
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - '@opentelemetry/core'
-      - encoding
-      - supports-color
-
-  inngest@4.26.2(@opentelemetry/core@3.1.1(@opentelemetry/api@1.10.0))(typescript@5.9.3)(zod@4.6.7):
-    dependencies:
-      '@bufbuild/protobuf': 2.17.0
-      '@inngest/ai': 0.1.8
-      '@jpwilliams/waitgroup': 2.1.1
-      '@opentelemetry/api': 1.10.0
-      '@opentelemetry/auto-instrumentations-node': 0.83.1(@opentelemetry/api@1.10.0)(@opentelemetry/core@3.1.1(@opentelemetry/api@1.10.0))
-      '@opentelemetry/context-async-hooks': 2.12.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-trace-otlp-http': 0.223.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/instrumentation': 0.223.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/resources': 2.12.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/sdk-trace-base': 2.12.1(@opentelemetry/api@1.10.0)
-      '@standard-schema/spec': 1.1.0
-      '@traceloop/instrumentation-anthropic': 0.20.0
-      '@types/debug': 4.1.13
-      '@types/ms': 2.1.0
-      canonicalize: 1.0.8
-      cross-fetch: 4.1.0
-      debug: 4.4.3
-      hash.js: 1.1.7
-      json-stringify-safe: 5.0.1
-      ms: 2.1.3
-      temporal-polyfill: 0.2.5
-      ulid: 2.4.0
-      zod: 4.6.7
-    optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
       - '@opentelemetry/core'

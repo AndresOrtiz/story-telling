@@ -56,16 +56,16 @@ export const RoomCode = z
   .pipe(z.string().length(6));
 
 export const LOVE_TAGS = ["characters", "world", "moral", "action", "romance", "mystery"] as const;
-export const SelectionInput = z.object({
-  source: z.enum(["openlibrary", "google", "tmdb", "builtin", "manual"]),
-  externalId: z.string().max(120).default(""),
-  title: z.string().trim().min(1).max(120),
-  year: z.number().int().nullable().default(null),
-  kind: z.enum(["book", "movie", "series"]),
-  coverUrl: z.url().nullable().default(null),
-  favorite: z.boolean().default(false),
-  loveTags: z.array(z.enum(LOVE_TAGS)).max(6).default([]),
-});
+/** Either a title the server found (titleId) or a manual one. */
+export const SelectionInput = z
+  .object({
+    titleId: z.uuid().optional(),
+    title: z.string().trim().min(1).max(120).optional(),
+    kind: z.enum(["book", "movie", "series"]).default("book"),
+    favorite: z.boolean().default(false),
+    loveTags: z.array(z.enum(LOVE_TAGS)).max(6).default([]),
+  })
+  .refine((s) => s.titleId || s.title, "titleId or title is required");
 export type SelectionInput = z.infer<typeof SelectionInput>;
 
 export const VoteInput = z.object({

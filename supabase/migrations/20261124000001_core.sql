@@ -5,6 +5,7 @@
 create table public.sessions (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
+  stage_token text not null default replace(gen_random_uuid()::text, '-', ''),
   host_user_id uuid not null,
   phase text not null default 'lobby',
   paused_from text,
@@ -97,6 +98,7 @@ create table public.story_bibles (
 create table public.assets (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.sessions on delete cascade,
+  role text not null,
   kind text not null check (kind in ('image', 'pdf')),
   url text not null,
   alt text not null default '',
@@ -108,7 +110,7 @@ create table public.assets (
   cost_usd numeric not null default 0,
   created_at timestamptz not null default now()
 );
-create index assets_session on public.assets (session_id);
+create index assets_session on public.assets (session_id, role, created_at);
 
 create table public.characters (
   id uuid primary key default gen_random_uuid(),

@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "e2e": "pnpm --filter @cs/web e2e",
-    "simulate": "tsx --conditions=react-server tools/simulator/src/cli.ts",
+    "simulate": "tsx tools/simulator/src/cli.ts",
     "db:push": "supabase db push",
     "evals": "promptfoo eval -c packages/ai/evals/promptfooconfig.yaml"
   },
