@@ -199,7 +199,12 @@ export async function profileViews(q: Sql, sessionId: string): Promise<(ProfileV
 }
 
 /** Everything one viewer may see, and nothing else. */
-export async function snapshot(code: string, userId: string, stageToken?: string | null): Promise<Snapshot | Limited> {
+export async function snapshot(
+  code: string,
+  userId: string,
+  stageToken?: string | null,
+  knownVersion?: number,
+): Promise<Snapshot | Limited> {
   const db = await getDb();
   let a: Access = await access(code, userId, stageToken);
   if (await tick(a.session)) a = await access(code, userId, stageToken);
@@ -218,6 +223,8 @@ export async function snapshot(code: string, userId: string, stageToken?: string
       locked: s.locked,
     };
   }
+  // The caller already has this version: send only the clock.
+  if (knownVersion === s.state_version) return { unchanged: true, now: Date.now() } as never;
 
   const people = await db.query<r.ParticipantRow>(
     "select * from participants where session_id = $1 and kicked_at is null order by created_at, id",
